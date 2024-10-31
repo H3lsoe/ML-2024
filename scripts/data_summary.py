@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 
 
 # Load xls sheet with data
-filename = "data/Raisin_Dataset.xls"
+filename = "../data/Raisin_Dataset.xls"
 df = pd.read_excel(filename, sheet_name=0)
 
-# Get header 
+# Get header
 #print(df.head())
 
 # Get summary statistics of data
@@ -18,12 +18,12 @@ df = pd.read_excel(filename, sheet_name=0)
 
 # Make histogram for each variable
 #df.hist(bins=15, figsize=(15, 10), layout=(3, 3))
-#plt.tight_layout() 
+#plt.tight_layout()
 #plt.show()
 
 # Make boxplot for each variable
 df.boxplot()
-plt.tight_layout() 
+plt.tight_layout()
 plt.show()
 
 # Correlation matrix

@@ -1,10 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-import seaborn as snsca
 
 # Load your data
-filename = "data/Raisin_Dataset.xls"
+filename = "../data/Raisin_Dataset.xls"
 df = pd.read_excel(filename)
 
 # Map the class labels

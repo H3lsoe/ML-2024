@@ -9,7 +9,7 @@ import xlrd
 
 
 
-filename = "data/Raisin_Dataset.xls"
+filename = "../data/Raisin_Dataset.xls"
 
 df = pd.read_excel(filename)
 df['Class'] = df['Class'].map({'Kecimen': 0, 'Besni': 1})
