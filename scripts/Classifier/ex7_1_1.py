@@ -1,50 +1,65 @@
 import numpy as np
 
-# requires data from exercise 1.5.1
+# Requires data from exercise 1.5.1
 from ex1_5_1 import *
-from matplotlib.pyplot import figure, plot, show, xlabel, ylabel
+from matplotlib.pyplot import figure, plot, show, xlabel, ylabel, title
 from scipy.io import loadmat
 from sklearn import model_selection
 from sklearn.neighbors import KNeighborsClassifier
 
-# This script crates predictions from three KNN classifiers using cross-validation
+# This script creates predictions from multiple KNN classifiers using cross-validation
 
-# Maximum number of neighbors
-L = [1, 20, 80]
+# Define the range of neighbors to evaluate (1 to 29)
+L = list(range(1, 30))
 
+# Initialize Leave-One-Out Cross-Validation
 CV = model_selection.LeaveOneOut()
 i = 0
 
-# store predictions.
+# Store predictions and true labels
 yhat = []
 y_true = []
+N = len(X)  # Number of samples
+
 for train_index, test_index in CV.split(X, y):
-    print("Crossvalidation fold: {0}/{1}".format(i + 1, N))
+    print(f"Cross-validation fold: {i + 1}/{N}")
 
-    # extract training and test set for current CV fold
-    X_train = X[train_index, :]
-    y_train = y[train_index]
-    X_test = X[test_index, :]
-    y_test = y[test_index]
+    # Extract training and test sets for the current CV fold
+    X_train, X_test = X[train_index, :], X[test_index, :]
+    y_train, y_test = y[train_index], y[test_index]
 
-    # Fit classifier and classify the test points (consider 1 to 40 neighbors)
+    # Fit classifiers for each k and predict the test point
     dy = []
     for l in L:
         knclassifier = KNeighborsClassifier(n_neighbors=l)
         knclassifier.fit(X_train, y_train)
         y_est = knclassifier.predict(X_test)
+        dy.append(y_est[0])  # Append the scalar prediction
 
-        dy.append(y_est)
-        # errors[i,l-1] = np.sum(y_est[0]!=y_test[0])
-    dy = np.stack(dy, axis=1)
     yhat.append(dy)
-    y_true.append(y_test)
+    y_true.append(y_test[0])
     i += 1
 
-yhat = np.concatenate(yhat)
-y_true = np.concatenate(y_true)
-yhat[:, 0]  # predictions made by first classifier.
+# Convert lists to NumPy arrays for easier manipulation
+yhat = np.array(yhat)       # Shape: (N, len(L))
+y_true = np.array(y_true)   # Shape: (N,)
 
-print(yhat.shape)
+# Print the predictions matrix (optional)
+#print(yhat)
 
-# Compute accuracy here.
+# Compute accuracy for each classifier (each k)
+accuracies = []
+for idx, l in enumerate(L):
+    accuracy = np.mean(yhat[:, idx] == y_true)
+    accuracies.append(accuracy)
+    print(f'Accuracy for k={l}: {accuracy * 100:.2f}%')
+
+# Optional: Plot accuracy vs. number of neighbors
+figure(figsize=(10, 6))
+plot(L, np.array(accuracies) * 100, marker='o')
+xlabel('Number of Neighbors (k)')
+ylabel('Accuracy (%)')
+title('KNN Classifier Accuracy for Different k Values')
+grid(True)
+show()
+

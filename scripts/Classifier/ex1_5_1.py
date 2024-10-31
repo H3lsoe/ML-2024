@@ -6,12 +6,13 @@ import pandas as pd
 # Load the Iris csv data using the Pandas library
 # filename = importlib_resources.files("dtuimldmtools").joinpath("data/iris.csv")
 
-# Print the location of the iris.csv file on your computer. 
+# Print the location of the iris.csv file on your computer.
 # You should inspect it manually to understand the format and content
 # print("\nLocation of the iris.csv file: {}".format(filename))
 
 # Load the iris.csv file using pandas
 df = pd.read_csv("data/Raisin_Dataset.csv")
+# df = pd.read_csv("../../data/Raisin_Dataset.csv")
 
 # Pandas returns a dataframe, (df) which could be used for handling the data.
 # We will however convert the dataframe to numpy arrays for this course as
