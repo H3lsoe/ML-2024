@@ -1,187 +1,133 @@
 import numpy as np
-import sklearn.linear_model as lm
-from sklearn.model_selection import LeaveOneOut
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.dummy import DummyClassifier
+from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.metrics import accuracy_score
 from KNN_data import *  # Ensure this imports X and y appropriately
-import matplotlib.pyplot as plt
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn import model_selection
 
-# ---------------------------
-# Logistic Regression Section
-# ---------------------------
-
-print("Starting Logistic Regression Evaluation with Regularization...\n")
-
-# Define range of values for C (inverse of λ)
+# Define hyperparameter grids
 C_values = [0.001, 0.01, 0.1, 1, 10, 100]
-print(f"Testing Logistic Regression with C values: {C_values}\n")
+lr_param_grid = {'C': C_values, 'solver': ['liblinear']}  # 'liblinear' is suitable for small datasets
 
-# Initialize Leave-One-Out Cross-Validation
-loo = LeaveOneOut()
+k_values = list(range(1, 30))
+knn_param_grid = {'n_neighbors': k_values}
 
-# Initialize lists to store predictions and true labels for each C
-accuracy_scores_lr = {C: [] for C in C_values}
+# Initialize cross-validators
+outer_cv = KFold(n_splits=10, shuffle=True, random_state=42)
+inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
 
-N = len(X)  # Number of samples
-i = 0
+# Initialize list to store results
+results = []
 
-# Iterate through each fold
-for train_index, test_index in loo.split(X, y):
-    # Extract training and test sets for the current CV fold
-    X_train, X_test = X[train_index], X[test_index]
-    y_train, y_test = y[train_index], y[test_index]
+# Enumerate outer folds
+for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
+    print(f"\n--- Outer Fold {fold}/10 ---")
 
-    # Iterate through each C value
-    for C in C_values:
-        # Initialize and train the Logistic Regression model
-        model_lr = lm.LogisticRegression(C=C, max_iter=1000, solver='liblinear')  # 'liblinear' is good for small datasets
-        model_lr.fit(X_train, y_train)
+    # Split data
+    X_train_outer, X_test_outer = X[train_idx], X[test_idx]
+    y_train_outer, y_test_outer = y[train_idx], y[test_idx]
 
-        # Predict the class for the test sample
-        y_pred = model_lr.predict(X_test)[0]
+    # -----------------------------
+    # Logistic Regression - Inner CV
+    # -----------------------------
 
-        # Store the prediction
-        accuracy_scores_lr[C].append(y_pred == y_test[0])
+    # Initialize Logistic Regression model
+    lr = LogisticRegression(max_iter=1000)
 
-    i += 1
-    if i % 100 == 0 or i == N:
-        print(f"Processed {i}/{N} LOOCV folds.")
+    # Set up GridSearchCV for Logistic Regression
+    lr_grid = GridSearchCV(estimator=lr,
+                           param_grid=lr_param_grid,
+                           cv=inner_cv,
+                           scoring='accuracy',
+                           n_jobs=-1)
 
-# Calculate accuracy for each C
-accuracies_lr = {}
-for C in C_values:
-    accuracies_lr[C] = np.mean(accuracy_scores_lr[C])
-    print(f"Accuracy for Logistic Regression with C={C}: {accuracies_lr[C] * 100:.2f}%")
+    # Perform Grid Search
+    lr_grid.fit(X_train_outer, y_train_outer)
 
-# Select the best C (with highest accuracy)
-best_C_lr = max(accuracies_lr, key=accuracies_lr.get)
-best_accuracy_lr = accuracies_lr[best_C_lr]
-best_misclass_rate_lr = 1 - best_accuracy_lr
+    # Best hyperparameters
+    best_C = lr_grid.best_params_['C']
+    best_solver = lr_grid.best_params_['solver']
 
-print(f"\nBest C value for Logistic Regression: {best_C_lr} with Accuracy: {best_accuracy_lr * 100:.2f}%")
-print(f"Misclassification Rate: {best_misclass_rate_lr:.3f}\n")
+    # Best estimator
+    best_lr = lr_grid.best_estimator_
 
-# ---------------------------
-# K-Nearest Neighbors Section
-# ---------------------------
+    # Predict on outer test set
+    y_pred_lr = best_lr.predict(X_test_outer)
+    lr_accuracy = accuracy_score(y_test_outer, y_pred_lr)
 
-print("Starting K-Nearest Neighbors Evaluation with LOOCV...\n")
+    # -------------------
+    # K-Nearest Neighbors
+    # -------------------
 
-# Define the range of neighbors to evaluate (1 to 29)
-L = list(range(1, 30))
+    # Initialize KNN model
+    knn = KNeighborsClassifier()
 
-# Initialize Leave-One-Out Cross-Validation
-CV = model_selection.LeaveOneOut()
-i = 0
+    # Set up GridSearchCV for KNN
+    knn_grid = GridSearchCV(estimator=knn,
+                            param_grid=knn_param_grid,
+                            cv=inner_cv,
+                            scoring='accuracy',
+                            n_jobs=-1)
 
-# Store predictions and true labels
-yhat_knn = []
-y_true_knn = []
-N = len(X)  # Number of samples
+    # Perform Grid Search
+    knn_grid.fit(X_train_outer, y_train_outer)
 
-for train_index, test_index in CV.split(X, y):
-    # Optional: Print progress every 100 folds
-    if (i + 1) % 100 == 0 or (i + 1) == N:
-        print(f"Cross-validation fold: {i + 1}/{N}")
+    # Best hyperparameters
+    best_k = knn_grid.best_params_['n_neighbors']
 
-    # Extract training and test sets for the current CV fold
-    X_train, X_test = X[train_index, :], X[test_index, :]
-    y_train, y_test = y[train_index], y[test_index]
+    # Best estimator
+    best_knn = knn_grid.best_estimator_
 
-    # Fit classifiers for each k and predict the test point
-    dy = []
-    for l in L:
-        knclassifier = KNeighborsClassifier(n_neighbors=l)
-        knclassifier.fit(X_train, y_train)
-        y_est = knclassifier.predict(X_test)
-        dy.append(y_est[0])  # Append the scalar prediction
+    # Predict on outer test set
+    y_pred_knn = best_knn.predict(X_test_outer)
+    knn_accuracy = accuracy_score(y_test_outer, y_pred_knn)
 
-    yhat_knn.append(dy)
-    y_true_knn.append(y_test[0])
-    i += 1
+    # ---------------
+    # Baseline Model
+    # ---------------
 
-# Convert lists to NumPy arrays for easier manipulation
-yhat_knn = np.array(yhat_knn)       # Shape: (N, len(L))
-y_true_knn = np.array(y_true_knn)   # Shape: (N,)
+    # Initialize Dummy Classifier (Baseline)
+    baseline = DummyClassifier(strategy='most_frequent')
+    baseline.fit(X_train_outer, y_train_outer)
 
-# Compute accuracy for each classifier (each k)
-accuracies_knn = []
-for idx, l in enumerate(L):
-    accuracy = np.mean(yhat_knn[:, idx] == y_true_knn)
-    accuracies_knn.append(accuracy)
-    print(f'Accuracy for k={l}: {accuracy * 100:.2f}%')
+    # Predict on outer test set
+    y_pred_baseline = baseline.predict(X_test_outer)
+    baseline_accuracy = accuracy_score(y_test_outer, y_pred_baseline)
 
-# Find the best k
-best_k = L[np.argmax(accuracies_knn)]
-best_accuracy_knn = max(accuracies_knn)
-best_misclass_rate_knn = 1 - best_accuracy_knn
+    # ----------------
+    # Store the Result
+    # ----------------
 
-print(f"\nBest k for KNN: {best_k} with Accuracy: {best_accuracy_knn * 100:.2f}%")
-print(f"Misclassification Rate: {best_misclass_rate_knn:.3f}\n")
+    results.append({
+        'Fold': fold,
+        'LogReg_C*': best_C,
+        'LogReg_Etest': lr_accuracy,
+        'KNN_k*': best_k,
+        'KNN_Etest': knn_accuracy,
+        'Baseline_Etest': baseline_accuracy
+    })
 
-# ---------------------------
-# Visualization Section
-# ---------------------------
+# Convert results to DataFrame
+results_df = pd.DataFrame(results)
 
-# Plotting Logistic Regression Accuracies
-plt.figure(figsize=(10, 6))
-plt.plot(C_values, np.array(list(accuracies_lr.values())) * 100, marker='o', label='Logistic Regression')
-plt.xlabel('Inverse Regularization Strength (C)')
-plt.ylabel('Accuracy (%)')
-plt.title('Logistic Regression Accuracy for Different C Values')
-plt.xscale('log')  # Since C spans multiple orders of magnitude
-plt.grid(True)
-plt.legend()
-plt.show()
+# Display the table
+print("\n=== Nested Cross-Validation Results ===")
+print(results_df)
 
-# Plotting KNN Accuracies
-plt.figure(figsize=(10, 6))
-plt.plot(L, np.array(accuracies_knn) * 100, marker='o', label='K-Nearest Neighbors')
-plt.xlabel('Number of Neighbors (k)')
-plt.ylabel('Accuracy (%)')
-plt.title('KNN Classifier Accuracy for Different k Values')
-plt.grid(True)
-plt.legend()
-plt.show()
+# Calculate average accuracies
+average_results = {
+    'LogReg_Avg_C*': results_df['LogReg_C*'].mode()[0],  # Most frequent best C
+    'LogReg_Avg_Etest': results_df['LogReg_Etest'].mean(),
+    'KNN_Avg_k*': results_df['KNN_k*'].mode()[0],       # Most frequent best k
+    'KNN_Avg_Etest': results_df['KNN_Etest'].mean(),
+    'Baseline_Avg_Etest': results_df['Baseline_Etest'].mean()
+}
 
-# Optional: Compare Logistic Regression and KNN
-plt.figure(figsize=(10, 6))
-plt.plot(C_values, np.array(list(accuracies_lr.values())) * 100, marker='o', label='Logistic Regression')
-plt.plot(L, np.array(accuracies_knn) * 100, marker='x', label='K-Nearest Neighbors')
-plt.xlabel('Parameter Value')
-plt.ylabel('Accuracy (%)')
-plt.title('Logistic Regression vs. KNN Accuracy')
-plt.xscale('log')
-plt.grid(True)
-plt.legend()
-plt.show()
+# Convert to DataFrame for display
+average_df = pd.DataFrame([average_results])
 
-# ---------------------------
-# Final Outputs
-# ---------------------------
-
-# Display classification results for Logistic Regression with best C
-print("Final Logistic Regression Model Evaluation with Best C")
-print(f"Overall misclassification rate: {best_misclass_rate_lr:.3f}")
-
-# Fit the Logistic Regression model on the entire dataset with best C for visualization
-model_final_lr = lm.LogisticRegression(C=best_C_lr, max_iter=1000, solver='liblinear')
-model_final_lr.fit(X, y)
-y_est_white_prob_lr = model_final_lr.predict_proba(X)[:, 0]
-
-# Plot predicted probabilities
-plt.figure(figsize=(10, 6))
-class0_ids = np.nonzero(y == 0)[0].tolist()
-plt.plot(class0_ids, y_est_white_prob_lr[class0_ids], ".y", label="Besni")
-class1_ids = np.nonzero(y == 1)[0].tolist()
-plt.plot(class1_ids, y_est_white_prob_lr[class1_ids], ".r", label="Kecimen")
-plt.xlabel("Data object (wine sample)")
-plt.ylabel("Predicted prob. of class White")
-plt.legend()
-plt.ylim(-0.01, 1.5)
-plt.title("Logistic Regression Predicted Probabilities (Best C)")
-plt.show()
-
-print("Ran Logistic Regression and KNN Evaluations with LOOCV")
+print("\n=== Average Performance ===")
+print(average_df)
 
