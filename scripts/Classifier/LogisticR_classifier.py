@@ -1,41 +1,86 @@
-# exercise 5.2.6
+import numpy as np
 import sklearn.linear_model as lm
+from sklearn.model_selection import LeaveOneOut
+from sklearn.metrics import accuracy_score
+from KNN_data import *  # Ensure this imports X and y appropriately
+import matplotlib.pyplot as plt
 
-# requires data from exercise 5.1.4
-from scripts.Classifier.LogisticR_data import *
-from matplotlib.pylab import figure, legend, plot, show, xlabel, ylabel, ylim
+# Initialize Leave-One-Out Cross-Validation
+loo = LeaveOneOut()
 
-# Fit logistic regression model
+# Initialize lists to store predictions and true labels
+yhat_lr = []
+y_true_lr = []
 
-model = lm.LogisticRegression()
-model = model.fit(X, y)
+# Initialize counter
+i = 0
+N = len(X)
 
-# Classify wine as White/Red (0/1) and assess probabilities
-y_est = model.predict(X)
-y_est_white_prob = model.predict_proba(X)[:, 0]
+# Iterate through each fold
+for train_index, test_index in loo.split(X, y):
+    print(f"Logistic Regression LOOCV fold: {i + 1}/{N}")
 
-# Define a new data object (new type of wine), as in exercise 5.1.7
-x = np.array([6.9, 1.09, 0.06, 2.1, 0.0061, 12, 31, 0.99, 3.5, 0.44, 12]).reshape(1, -1)
-# Evaluate the probability of x being a white wine (class=0)
-x_class = model.predict_proba(x)[0, 0]
+    # Split data into training and testing sets for the current fold
+    X_train, X_test = X[train_index], X[test_index]
+    y_train, y_test = y[train_index], y[test_index]
 
-# Evaluate classifier's misclassification rate over entire training data
-misclass_rate = np.sum(y_est != y) / float(len(y_est))
+    # Initialize and train the Logistic Regression model
+    model_lr = lm.LogisticRegression(max_iter=1000)  # Increase max_iter if needed
+    model_lr.fit(X_train, y_train)
 
-# Display classification results
-print("\nProbability of given sample being a white wine: {0:.4f}".format(x_class))
-print("\nOverall misclassification rate: {0:.3f}".format(misclass_rate))
+    # Predict the class for the test sample
+    y_pred = model_lr.predict(X_test)[0]
 
-f = figure()
+    # Store the prediction and the true label
+    yhat_lr.append(y_pred)
+    y_true_lr.append(y_test[0])
+
+    i += 1
+
+# Convert lists to NumPy arrays for easier manipulation
+yhat_lr = np.array(yhat_lr)
+y_true_lr = np.array(y_true_lr)
+
+# Calculate overall accuracy
+accuracy_lr = accuracy_score(y_true_lr, yhat_lr)
+misclass_rate_lr = 1 - accuracy_lr
+
+print("\nLogistic Regression LOOCV Results:")
+print(f"Accuracy: {accuracy_lr * 100:.2f}%")
+print(f"Misclassification Rate: {misclass_rate_lr:.3f}")
+
+# (Optional) If you have KNN accuracies stored, you can compare them here
+# For example:
+# accuracies_knn = [...]  # Replace with your KNN accuracies list
+# plt.figure(figsize=(10, 6))
+# plt.plot(L, np.array(accuracies_knn) * 100, marker='o', label='KNN')
+# plt.axhline(y=accuracy_lr * 100, color='r', linestyle='--', label='Logistic Regression')
+# plt.xlabel('Number of Neighbors (k)')
+# plt.ylabel('Accuracy (%)')
+# plt.title('KNN vs. Logistic Regression Accuracy')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
+
+# Display classification results similar to your original Logistic Regression evaluation
+
+# (Optional) If you want to visualize probabilities as before, ensure to do it after LOOCV
+# For example, you can plot the predicted probabilities for the entire dataset
+model_full_lr = lm.LogisticRegression(max_iter=1000)
+model_full_lr.fit(X, y)
+y_est_white_prob_lr = model_full_lr.predict_proba(X)[:, 0]
+
+f = plt.figure()
 class0_ids = np.nonzero(y == 0)[0].tolist()
-plot(class0_ids, y_est_white_prob[class0_ids], ".y")
+plt.plot(class0_ids, y_est_white_prob_lr[class0_ids], ".y", label="Besni")
 class1_ids = np.nonzero(y == 1)[0].tolist()
-plot(class1_ids, y_est_white_prob[class1_ids], ".r")
-xlabel("Data object (wine sample)")
-ylabel("Predicted prob. of class White")
-legend(["White", "Red"])
-ylim(-0.01, 1.5)
+plt.plot(class1_ids, y_est_white_prob_lr[class1_ids], ".r", label="Kecimen")
+plt.xlabel("Data object (raisin samples)")
+plt.ylabel("Predicted prob. of class")
+plt.legend()
+plt.ylim(-0.01, 1.5)
+plt.title("Logistic Regression Predicted Probabilities")
+plt.show()
 
-show()
+print("Ran Logistic Regression LOOCV Evaluation")
 
-print("Ran Exercise 5.2.6")

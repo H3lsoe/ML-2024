@@ -1,7 +1,7 @@
 import numpy as np
 
 # Requires data from exercise 1.5.1
-from scripts.Classifier.KNN_data import *
+from KNN_data import *
 from matplotlib.pyplot import figure, plot, show, xlabel, ylabel, title, grid
 from scipy.io import loadmat
 from sklearn import model_selection

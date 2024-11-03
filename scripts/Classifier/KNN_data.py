@@ -11,8 +11,8 @@ import pandas as pd
 # print("\nLocation of the iris.csv file: {}".format(filename))
 
 # Load the iris.csv file using pandas
-df = pd.read_csv("data/Raisin_Dataset.csv")
-# df = pd.read_csv("../../data/Raisin_Dataset.csv")
+#df = pd.read_csv("data/Raisin_Dataset.csv")
+df = pd.read_csv("../../data/Raisin_Dataset.csv")
 
 # Pandas returns a dataframe, (df) which could be used for handling the data.
 # We will however convert the dataframe to numpy arrays for this course as
@@ -39,6 +39,7 @@ classLabels = raw_data[:, -1]  # -1 takes the last column
 # Then determine which classes are in the data by finding the set of
 # unique class labels
 classNames = np.unique(classLabels)
+print(classNames)
 
 # We can assign each type of Iris class with a number by making a
 # Python dictionary as so:
