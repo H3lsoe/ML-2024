@@ -40,7 +40,7 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     lr_grid = GridSearchCV(estimator=lr,
                            param_grid=lr_param_grid,
                            cv=inner_cv,
-                           scoring='accuracy',
+                           scoring='accuracy',  # Optimize for accuracy
                            n_jobs=-1)
 
     # Perform Grid Search
@@ -56,6 +56,7 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     # Predict on outer test set
     y_pred_lr = best_lr.predict(X_test_outer)
     lr_accuracy = accuracy_score(y_test_outer, y_pred_lr)
+    lr_error = 1 - lr_accuracy  # Compute error rate
 
     # -------------------
     # K-Nearest Neighbors
@@ -68,7 +69,7 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     knn_grid = GridSearchCV(estimator=knn,
                             param_grid=knn_param_grid,
                             cv=inner_cv,
-                            scoring='accuracy',
+                            scoring='accuracy',  # Optimize for accuracy
                             n_jobs=-1)
 
     # Perform Grid Search
@@ -83,6 +84,7 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     # Predict on outer test set
     y_pred_knn = best_knn.predict(X_test_outer)
     knn_accuracy = accuracy_score(y_test_outer, y_pred_knn)
+    knn_error = 1 - knn_accuracy  # Compute error rate
 
     # ---------------
     # Baseline Model
@@ -95,6 +97,7 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     # Predict on outer test set
     y_pred_baseline = baseline.predict(X_test_outer)
     baseline_accuracy = accuracy_score(y_test_outer, y_pred_baseline)
+    baseline_error = 1 - baseline_accuracy  # Compute error rate
 
     # ----------------
     # Store the Result
@@ -103,10 +106,10 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     results.append({
         'Fold': fold,
         'LogReg_C*': best_C,
-        'LogReg_Etest': lr_accuracy,
+        'LogReg_Etest': lr_error,
         'KNN_k*': best_k,
-        'KNN_Etest': knn_accuracy,
-        'Baseline_Etest': baseline_accuracy
+        'KNN_Etest': knn_error,
+        'Baseline_Etest': baseline_error
     })
 
 # Convert results to DataFrame
@@ -116,7 +119,7 @@ results_df = pd.DataFrame(results)
 print("\n=== Nested Cross-Validation Results ===")
 print(results_df)
 
-# Calculate average accuracies
+# Calculate average error rates and most frequent hyperparameters
 average_results = {
     'LogReg_Avg_C*': results_df['LogReg_C*'].mode()[0],  # Most frequent best C
     'LogReg_Avg_Etest': results_df['LogReg_Etest'].mean(),
