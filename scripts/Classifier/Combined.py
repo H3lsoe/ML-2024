@@ -5,8 +5,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.metrics import accuracy_score
-from KNN_data import *  # Ensure this imports X and y appropriately
-
+from KNN_data import *
 # Define hyperparameter grids
 C_values = [0.001, 0.01, 0.1, 1, 10, 100]
 lr_param_grid = {'C': C_values, 'solver': ['liblinear']}  # 'liblinear' is suitable for small datasets
@@ -18,10 +17,9 @@ knn_param_grid = {'n_neighbors': k_values}
 outer_cv = KFold(n_splits=10, shuffle=True, random_state=42)
 inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
 
-# Initialize list to store results
 results = []
 
-# Enumerate outer folds
+# Outer folds
 for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     print(f"\n--- Outer Fold {fold}/10 ---")
 
@@ -29,21 +27,16 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     X_train_outer, X_test_outer = X[train_idx], X[test_idx]
     y_train_outer, y_test_outer = y[train_idx], y[test_idx]
 
-    # -----------------------------
-    # Logistic Regression - Inner CV
-    # -----------------------------
 
     # Initialize Logistic Regression model
     lr = LogisticRegression(max_iter=1000)
 
-    # Set up GridSearchCV for Logistic Regression
     lr_grid = GridSearchCV(estimator=lr,
                            param_grid=lr_param_grid,
                            cv=inner_cv,
                            scoring='accuracy',  # Optimize for accuracy
                            n_jobs=-1)
 
-    # Perform Grid Search
     lr_grid.fit(X_train_outer, y_train_outer)
 
     # Best hyperparameters
@@ -58,9 +51,6 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     lr_accuracy = accuracy_score(y_test_outer, y_pred_lr)
     lr_error = 1 - lr_accuracy  # Compute error rate
 
-    # -------------------
-    # K-Nearest Neighbors
-    # -------------------
 
     # Initialize KNN model
     knn = KNeighborsClassifier()
@@ -86,11 +76,6 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     knn_accuracy = accuracy_score(y_test_outer, y_pred_knn)
     knn_error = 1 - knn_accuracy  # Compute error rate
 
-    # ---------------
-    # Baseline Model
-    # ---------------
-
-    # Initialize Dummy Classifier (Baseline)
     baseline = DummyClassifier(strategy='most_frequent')
     baseline.fit(X_train_outer, y_train_outer)
 
@@ -98,10 +83,6 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
     y_pred_baseline = baseline.predict(X_test_outer)
     baseline_accuracy = accuracy_score(y_test_outer, y_pred_baseline)
     baseline_error = 1 - baseline_accuracy  # Compute error rate
-
-    # ----------------
-    # Store the Result
-    # ----------------
 
     results.append({
         'Fold': fold,
@@ -112,14 +93,12 @@ for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X, y), 1):
         'Baseline_Etest': baseline_error
     })
 
-# Convert results to DataFrame
 results_df = pd.DataFrame(results)
 
 # Display the table
 print("\n=== Nested Cross-Validation Results ===")
 print(results_df)
 
-# Calculate average error rates and most frequent hyperparameters
 average_results = {
     'LogReg_Avg_C*': results_df['LogReg_C*'].mode()[0],  # Most frequent best C
     'LogReg_Avg_Etest': results_df['LogReg_Etest'].mean(),
@@ -128,7 +107,6 @@ average_results = {
     'Baseline_Avg_Etest': results_df['Baseline_Etest'].mean()
 }
 
-# Convert to DataFrame for display
 average_df = pd.DataFrame([average_results])
 
 print("\n=== Average Performance ===")

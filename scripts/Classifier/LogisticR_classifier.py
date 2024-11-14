@@ -1,86 +1,104 @@
 import numpy as np
 import sklearn.linear_model as lm
-from sklearn.model_selection import LeaveOneOut
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.metrics import accuracy_score
-from KNN_data import *  # Ensure this imports X and y appropriately
+from KNN_data import *
 import matplotlib.pyplot as plt
+import pandas as pd
 
-# Initialize Leave-One-Out Cross-Validation
-loo = LeaveOneOut()
+num_features = X.shape[1]
+feature_names = [f"Feature {i}" for i in range(num_features)]
 
-# Initialize lists to store predictions and true labels
+k = 10
+
+kf = StratifiedKFold(n_splits=k, shuffle=True, random_state=69)
+
 yhat_lr = []
 y_true_lr = []
 
-# Initialize counter
 i = 0
 N = len(X)
 
-# Iterate through each fold
-for train_index, test_index in loo.split(X, y):
-    print(f"Logistic Regression LOOCV fold: {i + 1}/{N}")
+lambda_value = 0.01
+C_value = 1 / lambda_value  # C = 100
+
+for train_index, test_index in kf.split(X, y):
+    print(f"Logistic Regression k-Fold CV fold: {i + 1}/{k}")
 
     # Split data into training and testing sets for the current fold
     X_train, X_test = X[train_index], X[test_index]
     y_train, y_test = y[train_index], y[test_index]
 
-    # Initialize and train the Logistic Regression model
-    model_lr = lm.LogisticRegression(max_iter=1000)  # Increase max_iter if needed
+    model_lr = lm.LogisticRegression(
+        C=C_value,
+        penalty='l2',
+        solver='liblinear',
+        max_iter=1000,
+        random_state=42
+    )
     model_lr.fit(X_train, y_train)
 
-    # Predict the class for the test sample
-    y_pred = model_lr.predict(X_test)[0]
+    y_pred = model_lr.predict(X_test)
 
-    # Store the prediction and the true label
-    yhat_lr.append(y_pred)
-    y_true_lr.append(y_test[0])
+    yhat_lr.extend(y_pred)
+    y_true_lr.extend(y_test)
 
     i += 1
 
-# Convert lists to NumPy arrays for easier manipulation
 yhat_lr = np.array(yhat_lr)
 y_true_lr = np.array(y_true_lr)
 
-# Calculate overall accuracy
 accuracy_lr = accuracy_score(y_true_lr, yhat_lr)
 misclass_rate_lr = 1 - accuracy_lr
 
-print("\nLogistic Regression LOOCV Results:")
+print("\nLogistic Regression k-Fold CV Results:")
 print(f"Accuracy: {accuracy_lr * 100:.2f}%")
 print(f"Misclassification Rate: {misclass_rate_lr:.3f}")
 
-# (Optional) If you have KNN accuracies stored, you can compare them here
-# For example:
-# accuracies_knn = [...]  # Replace with your KNN accuracies list
-# plt.figure(figsize=(10, 6))
-# plt.plot(L, np.array(accuracies_knn) * 100, marker='o', label='KNN')
-# plt.axhline(y=accuracy_lr * 100, color='r', linestyle='--', label='Logistic Regression')
-# plt.xlabel('Number of Neighbors (k)')
-# plt.ylabel('Accuracy (%)')
-# plt.title('KNN vs. Logistic Regression Accuracy')
-# plt.legend()
-# plt.grid(True)
-# plt.show()
-
-# Display classification results similar to your original Logistic Regression evaluation
-
-# (Optional) If you want to visualize probabilities as before, ensure to do it after LOOCV
-# For example, you can plot the predicted probabilities for the entire dataset
-model_full_lr = lm.LogisticRegression(max_iter=1000)
+# Train the final model on the entire dataset
+model_full_lr = lm.LogisticRegression(
+    C=C_value,
+    penalty='l2',
+    solver='liblinear',
+    max_iter=1000,
+    random_state=42
+)
 model_full_lr.fit(X, y)
-y_est_white_prob_lr = model_full_lr.predict_proba(X)[:, 0]
 
-f = plt.figure()
-class0_ids = np.nonzero(y == 0)[0].tolist()
-plt.plot(class0_ids, y_est_white_prob_lr[class0_ids], ".y", label="Besni")
-class1_ids = np.nonzero(y == 1)[0].tolist()
-plt.plot(class1_ids, y_est_white_prob_lr[class1_ids], ".r", label="Kecimen")
-plt.xlabel("Data object (raisin samples)")
-plt.ylabel("Predicted prob. of class")
-plt.legend()
-plt.ylim(-0.01, 1.5)
-plt.title("Logistic Regression Predicted Probabilities")
+coefficients = model_full_lr.coef_[0]
+coef_df = pd.DataFrame({
+    'Feature': feature_names,
+    'Coefficient': coefficients,
+    'Abs_Coefficient': np.abs(coefficients)
+})
+
+coef_df_sorted = coef_df.sort_values(by='Abs_Coefficient', ascending=False)
+
+print("\nFeature Importance based on Logistic Regression Coefficients:")
+print(coef_df_sorted[['Feature', 'Coefficient', 'Abs_Coefficient']])
+
+N = 10
+plt.figure(figsize=(10, 6))
+plt.barh(coef_df_sorted['Feature'].head(N)[::-1], coef_df_sorted['Abs_Coefficient'].head(N)[::-1], color='skyblue')
+plt.xlabel('Absolute Coefficient Value')
+plt.title('Logistic Regression features')
+plt.grid(True)
 plt.show()
 
-print("Ran Logistic Regression LOOCV Evaluation")
+y_est_white_prob_lr = model_full_lr.predict_proba(X)[:, 0]
+
+plt.figure(figsize=(10, 6))
+class0_ids = np.nonzero(y == 0)[0].tolist()
+plt.plot(class0_ids, y_est_white_prob_lr[class0_ids], ".y", label="Class 0")
+class1_ids = np.nonzero(y == 1)[0].tolist()
+plt.plot(class1_ids, y_est_white_prob_lr[class1_ids], ".r", label="Class 1")
+plt.xlabel("Data Object (Sample Index)")
+plt.ylabel("Predicted Probability of Class 0")
+plt.legend()
+plt.ylim(-0.01, 1.05)
+plt.title("Logistic Regression Predicted Probabilities (λ = 0.01)")
+plt.grid(True)
+plt.show()
+
+print("Ran Logistic Regression k-Fold CV Evaluation with λ = 0.01")
 
